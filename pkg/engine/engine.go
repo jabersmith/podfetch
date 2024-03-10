@@ -20,7 +20,7 @@ func Fetch(feeds []*subscription.Feed, state *state.State, rootdir string, testm
 		}
 
 		contents, err := io.ReadAll(resp.Body)
-		defer resp.Body.Close()
+		resp.Body.Close()
 
 		rc, err := rss.ParseRss([]byte(contents))
 		if err != nil {

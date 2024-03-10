@@ -25,8 +25,6 @@ func download(podcast *rss.RssItem, rootdir string, dest string, basename string
 	}
 	defer resp.Body.Close()
 
-	if
-	
 	filenameWithExt := contentDispositionFilename(resp)
 	if filenameWithExt == "" {
 		filenameWithExt = filepath.Base(resp.Request.URL.Path)
@@ -60,11 +58,17 @@ func download(podcast *rss.RssItem, rootdir string, dest string, basename string
 	if err != nil {
 		return fmt.Errorf("failed to create podcast file %s: %v", fullpath, err)
 	}
-	defer out.Close()
 
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
+		out.Close()
+		os.Remove(fullpath)
 		return fmt.Errorf("failed to write podcast file %s: %v", fullpath, err)
+	}
+
+	err = out.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close podcast file %s: %v", fullpath, err)
 	}
 
 	err = os.Chtimes(fullpath, podcast.Date(), podcast.Date())
