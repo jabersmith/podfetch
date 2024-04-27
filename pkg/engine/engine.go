@@ -27,12 +27,12 @@ func Fetch(feeds []*subscription.Feed, state *state.State, rootdir string, testm
 			return fmt.Errorf("parse error on %s: %v", feed.Url, err)
 		}
 
-		last := state.Last(feed.Url)
+		last := state.Last(feed.Name)
 		newLast, err := fetchNewFromFeed(rc, feed, rootdir, last, testmode)
 		if err != nil {
 			return err
 		}
-		state.Update(feed.Url, newLast)
+		state.Update(feed.Name, newLast)
 
 		err = state.Flush()
 		if err != nil {

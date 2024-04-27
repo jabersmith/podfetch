@@ -16,6 +16,7 @@ type Wrapper struct {
 }
 
 type Feed struct {
+	Name    string
 	Url     string
 	Filters []*Filter
 }
@@ -27,11 +28,12 @@ type Filter struct {
 	DescriptionRegexp     *regexp.Regexp
 	FilenameExpression    string `yaml:"filename_regex"`
 	FilenameRegexp        *regexp.Regexp
-	Dest                  string
+	Subdir                string
 	Skip                  bool
 	Filename              string
 	FilenameTemplate      *template.Template
 	Incoming              bool
+	dest                  string
 }
 
 func ParseFeeds(doc []byte) ([]*Feed, error) {
@@ -69,13 +71,20 @@ func ParseFeeds(doc []byte) ([]*Feed, error) {
 				filter.FilenameRegexp = re
 			}
 
+			if filter.Subdir != "" {
+				filter.dest = fmt.Sprintf("%s/%s", feed.Name, filter.Subdir)
+			} else {
+				filter.dest = feed.Name
+			}
+
 			if filter.Filename != "" {
-				t, err := template.New(filter.Dest).Option("missingkey=zero").Parse(filter.Filename)
+				t, err := template.New(filter.dest).Option("missingkey=zero").Parse(filter.Filename)
 				if err != nil {
 					return []*Feed{}, fmt.Errorf("error parsing filename %s for feed %s", filter.Filename, feed.Url)
 				}
 				filter.FilenameTemplate = t
 			}
+
 		}
 	}
 
@@ -148,10 +157,10 @@ func (f *Filter) matchAndMap(podcast *rss.RssItem) (bool, string, string, bool) 
 	}
 
 	if f.FilenameTemplate == nil {
-		return true, f.Dest, "", f.Incoming
+		return true, f.dest, "", f.Incoming
 	}
 
 	var b bytes.Buffer
 	f.FilenameTemplate.Execute(&b, subst)
-	return true, f.Dest, b.String(), f.Incoming
+	return true, f.dest, b.String(), f.Incoming
 }

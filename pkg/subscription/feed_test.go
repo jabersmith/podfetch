@@ -2,37 +2,69 @@ package subscription
 
 import (
 	"testing"
+
+	"jaypod/pkg/rss"
 )
 
 const subYaml = `
 feeds:
-  - url: http://wtfpod.libsyn.com/rss
+  - name: "Comedy/WTF"
+    url: http://wtfpod.libsyn.com/rss
     filters:
       - title_regex: "Episode (?P<epnum>\d*) - (?P<eptitle>.*)"
-        dest: "Comedy/WTF"
         filename: "{{.epnum}} {{.eptitle}}"
         incoming: true
-      - dest: "Comedy/WTF"
-        filename: "{{.title}}"
+      - filename: "{{.title}}"
         incoming: true
-  - url: "https://www.patreon.com/rss/TheBestShow?auth=mxJC8pCEXWZ7LYrtS9vX7ek3vPHWB6LV"
+  - name: "Comedy/TheBestShow"
+    url: "https://www.patreon.com/rss/TheBestShow?auth=mxJC8pCEXWZ7LYrtS9vX7ek3vPHWB6LV"
     filters:
       - title_regex: "Meet My Friends.*"
-        dest: "Comedy/TheBestShow/MMFTF"
+        subdir: "MMFTF"
+        incoming: true
+      - title_regex: "Takin' The Leap.*"
+        subdir: "MMFTF"
+        incoming: true
+      - title_regex: "Meet My Friends.*"
+        subdir: "MMFTF"
         incoming: true
       - title_regex: ".*John Gentle .*"
-        dest: "Comedy/TheBestShow/JohnGentle"
+        subdir: "JohnGentle"
         incoming: true
       - title_regex: "Ask Tom.*"
-        dest: "Comedy/TheBestShow/AskTom"
+        subdir: "AskTom"
         incoming: true
       - title_regex: "Make Mike.*"
-        dest: "Comedy/TheBestShow/MakeMikeMarvel"
+        subdir: "MakeMikeMarvel"
+        incoming: true
+      - title_regex: "MAKE DC.*"
+        subdir: "MakeMikeMarvel"
+        incoming: true
+      - title_regex: "Rubinesque.*"
+        subdir: "Rubinesque"
+        incoming: true
+      - title_regex: "Four Horsemen.*"
+        subdir: "Horsemen"
+        incoming: true
+      - title_regex: "Four Horseman.*"
+        subdir: "Horsemen"
+        incoming: true
+      - title_regex: "BEST SHOW: FOUR HORSEMEN.*"
+        subdir: "Horsemen"
+        incoming: true
+      - title_regex: "S&W.*"
+        subdir: "SandW"
+        incoming: true
+      - title_regex: "Ahoy.*"
+        subdir: "Ahoy"
+        incoming: true
+      - title_regex: "So Far.*"
+        subdir: "SoFar"
         incoming: true
       - description_regex: ".*Originally.*"
-        dest: "Comedy/TheBestShow/BestShowBests"
+        subdir: "BestShowBests"
         incoming: true
-      - dest: "Comedy/TheBestShow/Main"
+      - subdir: "Main"
         incoming: true
 `
 
@@ -78,7 +110,8 @@ func TestParseFeeds(t *testing.T) {
 	}
 
 	for i, x := range wtfExpected {
-		match, dest, filebasename, incoming := feeds[0].MatchAndMap(x.title, x.description, map[string]string{"title": x.title})
+		match, dest, filebasename, incoming := feeds[0].MatchAndMap(
+			makeRssItem(x.title, x.description))
 		if match != x.match {
 			t.Errorf("wtfExpected[%d] - expected match %v, got %v", i, x.match, match)
 		}
@@ -120,7 +153,8 @@ func TestParseFeeds(t *testing.T) {
 	}
 
 	for i, x := range bestShowExpected {
-		match, dest, filebasename, incoming := feeds[1].MatchAndMap(x.title, x.description, map[string]string{"title": x.title})
+		match, dest, filebasename, incoming := feeds[1].MatchAndMap(
+			makeRssItem(x.title, x.description))
 		if match != x.match {
 			t.Errorf("bestShowExpected[%d] - expected match %v, got %v", i, x.match, match)
 		}
@@ -133,5 +167,12 @@ func TestParseFeeds(t *testing.T) {
 		if incoming != x.incoming {
 			t.Errorf("bestShowExpected[%d] - expected incoming %v, got %v", i, x.incoming, incoming)
 		}
+	}
+}
+
+func makeRssItem(title, description string) *rss.RssItem {
+	return &rss.RssItem{
+		MyTitle:       rss.NonNamespaceString(title),
+		MyDescription: description,
 	}
 }
