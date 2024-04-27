@@ -25,6 +25,11 @@ func download(podcast *rss.RssItem, rootdir string, dest string, basename string
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad response code from %s: %d: %s\n",
+			podcast.Url(), resp.StatusCode, http.StatusText(resp.StatusCode))
+	}
+
 	filenameWithExt := contentDispositionFilename(resp)
 	if filenameWithExt == "" {
 		filenameWithExt = filepath.Base(resp.Request.URL.Path)
