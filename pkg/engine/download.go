@@ -9,10 +9,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/rs/zerolog"
+
 	"jaypod/pkg/rss"
 )
 
-func download(podcast *rss.RssItem, rootdir string, dest string, basename string, incoming bool) error {
+func download(podcast *rss.RssItem, rootdir string, dest string, basename string, incoming bool, sublog zerolog.Logger) error {
 
 	destDir := fmt.Sprintf("%s/%s", rootdir, dest)
 	if err := os.MkdirAll(destDir, 0777); err != nil {
@@ -30,7 +32,7 @@ func download(podcast *rss.RssItem, rootdir string, dest string, basename string
 			podcast.Url(), resp.StatusCode, http.StatusText(resp.StatusCode))
 	}
 
-	filenameWithExt := contentDispositionFilename(resp)
+	filenameWithExt := contentDispositionFilename(resp, sublog)
 	if filenameWithExt == "" {
 		filenameWithExt = filepath.Base(resp.Request.URL.Path)
 	}
@@ -81,8 +83,6 @@ func download(podcast *rss.RssItem, rootdir string, dest string, basename string
 		return fmt.Errorf("failed to change times on  podcast file %s: %v", fullpath, err)
 	}
 
-	fmt.Printf("Downloaded %s\n", fullpath)
-
 	if incoming {
 		incomingDir := fmt.Sprintf("%s/Incoming", rootdir)
 		if err := os.MkdirAll(incomingDir, 0777); err != nil {
@@ -105,25 +105,32 @@ func download(podcast *rss.RssItem, rootdir string, dest string, basename string
 	return nil
 }
 
-func contentDispositionFilename(resp *http.Response) string {
+func contentDispositionFilename(resp *http.Response, sublog zerolog.Logger) string {
 	contentDisposition := resp.Header.Get("content-disposition")
 	if contentDisposition == "" {
-		fmt.Printf("No content-disposition header\n")
+		sublog.Debug().Msg("No content-disposition header")
 		return ""
 	} else if contentDisposition == "inline" {
-		fmt.Printf("content-disposition inline\n")
+		sublog.Debug().Msg("content-disposition inline")
 		return ""
 	}
 
+	sublog = sublog.With().
+		Str("content-disposition", contentDisposition).
+		Logger()
+
 	_, params, err := mime.ParseMediaType(contentDisposition)
 	if err != nil {
-		fmt.Printf("error parsing content-disposition %s: %v\n", contentDisposition, err)
+		sublog.Error().
+			Err(err).
+			Msg("error parsing content-disposition")
 		return ""
 	}
 
 	fname := params["filename"]
 	if fname == "" {
-		fmt.Printf("no filename in content-disposition %s\n", contentDisposition)
+		sublog.Debug().
+			Msg("no filename in content-disposition")
 		return ""
 	}
 

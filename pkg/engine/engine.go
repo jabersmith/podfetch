@@ -7,16 +7,20 @@ import (
 	"slices"
 	"time"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
 	"jaypod/pkg/rss"
 	"jaypod/pkg/state"
 	"jaypod/pkg/subscription"
 )
 
-func Fetch(feeds []*subscription.Feed, state *state.State, rootdir string, testmode bool) error {
+func Fetch(feeds []*subscription.Feed, state *state.State, rootdir string, testmode bool) (int, error) {
+	numDownloads := 0
 	for _, feed := range feeds {
 		resp, err := http.Get(feed.Url)
 		if err != nil {
-			return fmt.Errorf("failed getting %s: %v", feed.Url, err)
+			return numDownloads, fmt.Errorf("failed getting %s: %v", feed.Url, err)
 		}
 
 		contents, err := io.ReadAll(resp.Body)
@@ -24,27 +28,28 @@ func Fetch(feeds []*subscription.Feed, state *state.State, rootdir string, testm
 
 		rc, err := rss.ParseRss([]byte(contents))
 		if err != nil {
-			return fmt.Errorf("parse error on %s: %v", feed.Url, err)
+			return numDownloads, fmt.Errorf("parse error on %s: %v", feed.Url, err)
 		}
 
 		last := state.Last(feed.Name)
-		newLast, err := fetchNewFromFeed(rc, feed, rootdir, last, testmode)
+		newLast, newDownloads, err := fetchNewFromFeed(rc, feed, rootdir, last, testmode)
 		if err != nil {
-			return err
+			return numDownloads, err
 		}
+		numDownloads += newDownloads
 		state.Update(feed.Name, newLast)
 
 		err = state.Flush()
 		if err != nil {
-			return fmt.Errorf("error flushing state: %v\n", err)
+			return numDownloads, fmt.Errorf("error flushing state: %v\n", err)
 		}
 
 	}
 
-	return nil
+	return numDownloads, nil
 }
 
-func fetchNewFromFeed(rc rss.RssContainer, feed *subscription.Feed, rootdir string, last time.Time, testmode bool) (time.Time, error) {
+func fetchNewFromFeed(rc rss.RssContainer, feed *subscription.Feed, rootdir string, last time.Time, testmode bool) (time.Time, int, error) {
 
 	podcasts := rc.Podcasts()
 
@@ -63,28 +68,41 @@ func fetchNewFromFeed(rc rss.RssContainer, feed *subscription.Feed, rootdir stri
 
 	newLast := last
 
+	numDownloads := 0
 	for _, p := range newPodcasts {
 		match, dest, basename, incoming := feed.MatchAndMap(p)
 		if match && dest != "" {
-			err := act(testmode, p, rootdir, dest, basename, incoming)
+			sublog := log.With().
+				Str("feed", feed.Name).
+				Str("podcast", p.Enclosure.Url).
+				Str("basename", basename).
+				Str("dest", dest).
+				Bool("incoming", incoming).
+				Logger()
+
+			err := act(testmode, p, rootdir, dest, basename, incoming, sublog)
 			if err != nil {
-				fmt.Printf("%v\n", err)
+				sublog.Error().Err(err).Msg("")
 				break
 			}
+
+			sublog.Info().Msg("downloaded podcast")
+			numDownloads++
+
 			if p.PubDate.After(newLast) {
 				newLast = p.PubDate
 			}
 		}
 	}
 
-	return newLast, nil
+	return newLast, numDownloads, nil
 }
 
-func act(testmode bool, podcast *rss.RssItem, rootdir string, dest string, basename string, incoming bool) error {
+func act(testmode bool, podcast *rss.RssItem, rootdir string, dest string, basename string, incoming bool, sublog zerolog.Logger) error {
 	if testmode {
 		return trialRun(podcast, rootdir, dest, basename, incoming)
 	} else {
-		return download(podcast, rootdir, dest, basename, incoming)
+		return download(podcast, rootdir, dest, basename, incoming, sublog)
 	}
 }
 
