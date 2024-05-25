@@ -22,7 +22,7 @@ func main() {
 	var testmode = flag.Bool("t", false, "log output without downloading files")
 	var wakeInterval = flag.Int("w", 0, "if > 0, number of minutes to wait between rss pulls")
 
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
 
 	flag.Parse()
 
