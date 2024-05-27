@@ -2,10 +2,7 @@ module jaypod
 
 go 1.22.0
 
-require (
-	github.com/goccy/go-yaml v1.11.3
-	github.com/rs/zerolog v1.32.0
-)
+require github.com/goccy/go-yaml v1.11.3
 
 require (
 	github.com/fatih/color v1.10.0 // indirect
