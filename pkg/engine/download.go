@@ -3,18 +3,17 @@ package engine
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/rs/zerolog"
-
 	"jaypod/pkg/rss"
 )
 
-func download(podcast *rss.RssItem, rootdir string, dest string, basename string, incoming bool, sublog zerolog.Logger) error {
+func download(podcast *rss.RssItem, rootdir string, dest string, basename string, incoming bool, sublog *slog.Logger) error {
 
 	destDir := fmt.Sprintf("%s/%s", rootdir, dest)
 	if err := os.MkdirAll(destDir, 0777); err != nil {
@@ -105,32 +104,28 @@ func download(podcast *rss.RssItem, rootdir string, dest string, basename string
 	return nil
 }
 
-func contentDispositionFilename(resp *http.Response, sublog zerolog.Logger) string {
+func contentDispositionFilename(resp *http.Response, sublog *slog.Logger) string {
 	contentDisposition := resp.Header.Get("content-disposition")
 	if contentDisposition == "" {
-		sublog.Debug().Msg("No content-disposition header")
+		sublog.Debug("No content-disposition header")
 		return ""
 	} else if contentDisposition == "inline" {
-		sublog.Debug().Msg("content-disposition inline")
+		sublog.Debug("content-disposition inline")
 		return ""
 	}
 
-	sublog = sublog.With().
-		Str("content-disposition", contentDisposition).
-		Logger()
+	sublog = sublog.With("content-disposition", contentDisposition)
 
 	_, params, err := mime.ParseMediaType(contentDisposition)
 	if err != nil {
-		sublog.Error().
-			Err(err).
-			Msg("error parsing content-disposition")
+		sublog.Error("error parsing content-disposition",
+			"err", err)
 		return ""
 	}
 
 	fname := params["filename"]
 	if fname == "" {
-		sublog.Debug().
-			Msg("no filename in content-disposition")
+		sublog.Debug("no filename in content-disposition")
 		return ""
 	}
 

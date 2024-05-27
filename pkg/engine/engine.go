@@ -3,12 +3,10 @@ package engine
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"slices"
 	"time"
-
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 
 	"jaypod/pkg/rss"
 	"jaypod/pkg/state"
@@ -72,21 +70,20 @@ func fetchNewFromFeed(rc rss.RssContainer, feed *subscription.Feed, rootdir stri
 	for _, p := range newPodcasts {
 		match, dest, basename, incoming := feed.MatchAndMap(p)
 		if match && dest != "" {
-			sublog := log.With().
-				Str("feed", feed.Name).
-				Str("podcast", p.Enclosure.Url).
-				Str("basename", basename).
-				Str("dest", dest).
-				Bool("incoming", incoming).
-				Logger()
+			sublog := slog.With(
+				"feed", feed.Name,
+				"podcast", p.Enclosure.Url,
+				"basename", basename,
+				"dest", dest,
+				"incoming", incoming)
 
 			err := act(testmode, p, rootdir, dest, basename, incoming, sublog)
 			if err != nil {
-				sublog.Error().Err(err).Msg("")
+				sublog.Error("", "err", err)
 				break
 			}
 
-			sublog.Info().Msg("downloaded podcast")
+			sublog.Info("downloaded podcast")
 			numDownloads++
 
 			if p.PubDate.After(newLast) {
@@ -98,7 +95,7 @@ func fetchNewFromFeed(rc rss.RssContainer, feed *subscription.Feed, rootdir stri
 	return newLast, numDownloads, nil
 }
 
-func act(testmode bool, podcast *rss.RssItem, rootdir string, dest string, basename string, incoming bool, sublog zerolog.Logger) error {
+func act(testmode bool, podcast *rss.RssItem, rootdir string, dest string, basename string, incoming bool, sublog *slog.Logger) error {
 	if testmode {
 		return trialRun(podcast, rootdir, dest, basename, incoming)
 	} else {
