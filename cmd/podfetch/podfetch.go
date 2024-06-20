@@ -14,7 +14,7 @@ import (
 
 func main() {
 
-	var subscriptionFile = flag.String("f", "", "subscriptions yaml file")
+	var subscriptionDir = flag.String("f", "", "subscriptions directory")
 	var stateFile = flag.String("s", "", "subscriptions state file")
 	var dir = flag.String("d", "", "directory into which podcasts should be saved")
 	var testmode = flag.Bool("t", false, "log output without downloading files")
@@ -22,8 +22,8 @@ func main() {
 
 	flag.Parse()
 
-	if *subscriptionFile == "" {
-		fmt.Fprintf(os.Stderr, "missing required feeds.yaml file\n")
+	if *subscriptionDir == "" {
+		fmt.Fprintf(os.Stderr, "missing required feeds directory\n")
 		os.Exit(1)
 	}
 
@@ -42,29 +42,21 @@ func main() {
 	if *wakeInterval > 0 {
 		tick := time.NewTicker(time.Duration(*wakeInterval) * time.Minute)
 		for ; ; <-tick.C {
-			pull(*subscriptionFile, *stateFile, *dir, *testmode)
+			pull(*subscriptionDir, *stateFile, *dir, *testmode)
 		}
 	} else {
-		pull(*subscriptionFile, *stateFile, *dir, *testmode)
+		pull(*subscriptionDir, *stateFile, *dir, *testmode)
 	}
 
 }
 
-func pull(subscriptionFile, stateFile, dir string, testmode bool) {
+func pull(subscriptionDir, stateFile, dir string, testmode bool) {
 
 	start := time.Now()
 
-	feedsYaml, err := os.ReadFile(subscriptionFile)
+	feeds, err := subscription.ParseDir(subscriptionDir)
 	if err != nil {
-		slog.Error("Bad file",
-			"filename", subscriptionFile,
-			"error", err)
-		return
-	}
-
-	feeds, err := subscription.ParseFeeds(feedsYaml)
-	if err != nil {
-		slog.Error("parse error on feeds.yaml",
+		slog.Error("error loading feeds",
 			"error", err)
 		return
 	}

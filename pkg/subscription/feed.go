@@ -3,7 +3,10 @@ package subscription
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
+	"os"
 	"regexp"
+	"strings"
 	"text/template"
 
 	"github.com/goccy/go-yaml"
@@ -34,6 +37,43 @@ type Filter struct {
 	FilenameTemplate      *template.Template
 	Incoming              bool
 	dest                  string
+}
+
+func ParseDir(dir string) ([]*Feed, error) {
+
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	feeds := []*Feed{}
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		if !strings.HasSuffix(file.Name(), ".yaml") {
+			continue
+		}
+
+		path := dir + "/" + file.Name()
+
+		feedsYaml, err := os.ReadFile(path)
+		if err != nil {
+			slog.Error("Unreadable file",
+				"filename", path,
+				"error", err)
+		}
+
+		newFeeds, err := ParseFeeds(feedsYaml)
+		if err != nil {
+			slog.Error("Error parsing file",
+				"filename", path,
+				"error", err)
+		}
+		feeds = append(feeds, newFeeds...)
+	}
+	return feeds, nil
 }
 
 func ParseFeeds(doc []byte) ([]*Feed, error) {
