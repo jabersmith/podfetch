@@ -48,6 +48,10 @@ func download(podcast *rss.RssItem, rootdir string, dest string, basename string
 
 	fname = escape(fname)
 
+	if len(fname) > 250 {
+		fname = fname[:250]
+	}
+
 	fullpath := fmt.Sprintf("%s/%s.%s", destDir, fname, extension)
 	exists := func(path string) bool {
 		_, err := os.Lstat(fullpath)
