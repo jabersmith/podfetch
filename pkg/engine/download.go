@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -20,7 +21,17 @@ func download(podcast *rss.RssItem, rootdir string, dest string, basename string
 		return fmt.Errorf("failed creating %s: %v", destDir, err)
 	}
 
-	resp, err := http.Get(podcast.Url())
+	cl := &http.Client{}
+
+	req, err := http.NewRequestWithContext(context.Background(),
+		"GET", podcast.Url(), nil)
+	if err != nil {
+		return fmt.Errorf("failed creating request %v: %v", podcast.Url(), err)
+	}
+
+	req.Header.Set("User-Agent", "podfetch/1.0")
+
+	resp, err := cl.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed getting %s: %v", podcast.Url(), err)
 	}
